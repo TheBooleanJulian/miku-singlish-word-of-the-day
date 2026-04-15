@@ -37,27 +37,27 @@ ai_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 # ── Word selection ─────────────────────────────────────────────────────────────
 def pick_word_for_today() -> dict:
-    """Deterministic daily pick — same word all day even if bot restarts."""
+    """Deterministic daily pick — same word all day even if bot restarts.
+    Filters nsfw words unless ALLOW_NSFW env var is set to '1' or 'true'."""
+    allow_nsfw = os.environ.get("ALLOW_NSFW", "0").lower() in ("1", "true", "yes")
+    pool = SINGLISH_WORDS if allow_nsfw else [w for w in SINGLISH_WORDS if not w.get("nsfw")]
     today_str = date.today().isoformat()
     seed = int(hashlib.md5(today_str.encode()).hexdigest(), 16)
     rng = random.Random(seed)
-    return rng.choice(SINGLISH_WORDS)
+    return rng.choice(pool)
 
 
 # ── AI content generation ──────────────────────────────────────────────────────
 def generate_miku_content(word_entry: dict) -> dict:
-    """Call Claude Haiku with web_search to get recent SG news and generate Miku's post."""
-    word     = word_entry["word"]
-    meaning  = word_entry["meaning"]
-    examples = word_entry["examples"]
-    ex_block = "\n".join(f"  {i+1}. {ex}" for i, ex in enumerate(examples))
+    """Call Claude Haiku with web_search to get recent SG news, generate Miku's post,
+    and generate 3 live example sentences (not stored in word bank)."""
+    word    = word_entry["word"]
+    meaning = word_entry["meaning"]
 
     prompt = f"""You are Hatsune Miku — the iconic virtual vocaloid idol — fully fluent in Singlish after living in Singapore long enough to be a local.
 
 Today's Singlish Word of the Day is: **{word}**
 Meaning: {meaning}
-Examples:
-{ex_block}
 
 Tasks:
 1. Use web_search to find 1-2 RECENT Singapore news stories from the past 7 days.
@@ -65,13 +65,16 @@ Tasks:
    - Applies the word to real Singapore news you found
    - Sounds like Miku: cheerful, uses Singlish particles (lah, leh, sia, wah, etc.), references vocaloid/music life naturally
    - Ends with a "🎤 Miku Verdict:" one-liner using the word
+3. Generate 3 fresh first-person example sentences as Miku living in Singapore.
+   Each must: use the word naturally, be 1 sentence, sound like Miku, reference Singapore life.
 
 Respond ONLY in this exact JSON (no markdown, no fences):
 {{
   "news_headline": "One sentence summary of the SG news story referenced",
   "news_source": "e.g. CNA, Straits Times, TODAY",
   "telegram_caption": "Full Miku post 180-260 words. Singlish, charming, references the news. Use line breaks. Include Miku Verdict at end.",
-  "fun_fact": "One quirky linguistic or cultural fun fact about this Singlish word (1-2 sentences)."
+  "fun_fact": "One quirky linguistic or cultural fun fact about this Singlish word (1-2 sentences).",
+  "examples": ["First person example sentence 1.", "First person example sentence 2.", "First person example sentence 3."]
 }}"""
 
     response = ai_client.messages.create(
@@ -103,11 +106,12 @@ Respond ONLY in this exact JSON (no markdown, no fences):
             "telegram_caption": (
                 f"Wah, today Miku teach you one very important word sia! ✨\n\n"
                 f"*{word.upper()}* — {meaning}\n\n"
-                f"{examples[0]}\n\n"
+                f"Today I feel very {word} lah!\n\n"
                 f"Singapore life confirm need this word one lah~ 🎵\n\n"
                 f"🎤 *Miku Verdict:* Very {word}, 10/10 would {word} again!"
             ),
             "fun_fact": f"'{word}' is one of the most versatile words in the Singlish lexicon!",
+            "examples": [f"I feel so {word} today lah!", f"Wah, very {word} sia!", f"This is the most {word} thing in Singapore!"],
         }
 
 
@@ -117,7 +121,7 @@ def build_telegram_caption(word_entry: dict, ai_content: dict, date_str: str) ->
     word_type     = word_entry["type"]
     pronunciation = word_entry["pronunciation"]
     meaning       = word_entry["meaning"]
-    examples      = word_entry["examples"]
+    examples      = ai_content.get("examples", [])
     news_src      = ai_content.get("news_source", "")
     news_hl       = ai_content.get("news_headline", "")
     fun_fact      = ai_content.get("fun_fact", "")
@@ -172,7 +176,7 @@ async def post_word_of_the_day(bot: Bot, chat_id: str = None, word_entry: dict =
         word_type     = word_entry["type"],
         pronunciation = word_entry["pronunciation"],
         meaning       = word_entry["meaning"],
-        examples      = word_entry["examples"],
+        examples      = ai_content.get("examples", []),
         date_str      = now_sgt.strftime("%d %b %Y"),
         day_str       = now_sgt.strftime("%A"),
         output_path   = card_path,
@@ -248,12 +252,11 @@ async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     e = matches[0]
-    ex_lines = "\n".join(f"  {n}. _{ex}_" for n, ex in enumerate(e["examples"], 1))
     await update.message.reply_text(
         f"📖 *{e['word'].upper()}*\n"
         f"_{e['type']}_ · /{e['pronunciation']}/\n\n"
         f"{e['meaning']}\n\n"
-        f"{ex_lines}",
+        f"_Use /today to see a live post with fresh examples!_",
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -296,7 +299,7 @@ async def cmd_debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
             word_type     = word_entry["type"],
             pronunciation = word_entry["pronunciation"],
             meaning       = word_entry["meaning"],
-            examples      = word_entry["examples"],
+            examples      = ["Examples generated live at post time!", "Use /today for a full post with fresh AI examples.", "Word bank stores definitions only — no static examples."],
             date_str      = now_sgt.strftime("%d %b %Y"),
             day_str       = now_sgt.strftime("%A"),
             output_path   = card_path,

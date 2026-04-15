@@ -23,7 +23,7 @@ TEXT_RIGHT = 688    # hard right edge — all text/boxes stay left of this
 MIKU_LEFT  = 700    # Migu panel starts here
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-MIKU_PATH  = os.path.join(SCRIPT_DIR, "assets", "migu.png")
+MIKU_PATH  = os.path.join(SCRIPT_DIR, "assets", "sgmigu.png")
 FONT_DIR   = os.path.join(SCRIPT_DIR, "fonts")
 
 

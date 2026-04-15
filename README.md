@@ -17,7 +17,7 @@ Built by [TheBooleanJulian](https://github.com/TheBooleanJulian).
 | 🕕 | Daily 6am SGT post, deterministic word selection (consistent across restarts) |
 | 🤖 | Claude Haiku + web search → real recent SG news applied to the word |
 | 🎨 | 1080×640 Pillow card — dark premium, teal accents, Migu figure |
-| 📚 | 49 Singlish words, 3 first-person Miku examples each |
+| 📚 | 412 Singlish words — examples generated live by Claude at post time |
 | 🔧 | `/debug` command for deployment health checks |
 
 ---
@@ -28,9 +28,9 @@ Built by [TheBooleanJulian](https://github.com/TheBooleanJulian).
 miku-singlish-bot/
 ├── bot.py               — Main bot, scheduler, all command handlers
 ├── card_generator.py    — Pillow card renderer (1080×640)
-├── singlish_words.py    — Word bank (49 words × 3 examples)
+├── singlish_words.py    — Word bank (412 words, examples generated live by Claude)
 ├── assets/
-│   └── migu.png         — Migu figure (pre-processed, transparent bg)
+│   └── sgmigu.png       — Migu figure (pre-processed, transparent bg)
 ├── requirements.txt
 ├── zbpack.json          — Zeabur build + start config
 ├── .env.example         — Environment variable template
@@ -104,7 +104,7 @@ python bot.py
 | `/start` / `/help` | Welcome message + command list |
 | `/today` | Trigger today's word immediately (with AI content) |
 | `/word <word>` | Look up any Singlish word in the bank |
-| `/list` | See all 49 words |
+| `/list` | See all 412 words |
 | `/debug` | Health check: env vars, card render, Anthropic ping, scheduler status |
 
 ---
@@ -119,13 +119,11 @@ Edit `singlish_words.py` and append to `SINGLISH_WORDS`:
     "type": "adjective / noun / phrase / particle",
     "pronunciation": "phonetic-spelling",
     "meaning": "Clear explanation of the word.",
-    "examples": [
-        "First person sentence using the word, as Miku.",
-        "Another sentence — different context.",
-        "A third, showing a different nuance of usage.",
-    ],
+    # Optional: "nsfw": True  — filtered out unless ALLOW_NSFW=1
 },
 ```
+
+No need to add examples — Claude generates fresh first-person Miku examples at post time.
 
 ---
 
