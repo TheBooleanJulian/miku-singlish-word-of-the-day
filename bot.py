@@ -399,11 +399,19 @@ async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     unique = sorted({w["word"] for w in SINGLISH_WORDS})
-    word_list = " • ".join(f"`{w}`" for w in unique)
+    header = f"🎵 *My Singlish Vocabulary* ({len(unique)} words)\n\n"
+    footer = "\n_More coming, steady bom pi pi!_ ✨"
+
+    chunks, cur = [], header
+    for word in unique:
+        token = f"`{word}` • "
+        if len(cur) + len(token) + len(footer) > 4000:
+            await update.message.reply_text(cur.rstrip(" •"), parse_mode=ParseMode.MARKDOWN)
+            cur = ""
+        cur += token
+
     await update.message.reply_text(
-        f"🎵 *My Singlish Vocabulary* ({len(unique)} words)\n\n{word_list}\n\n"
-        f"_More coming, steady bom pi pi!_ ✨",
-        parse_mode=ParseMode.MARKDOWN,
+        cur.rstrip(" •") + footer, parse_mode=ParseMode.MARKDOWN
     )
 
 
