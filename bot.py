@@ -275,18 +275,25 @@ def _unsubscribe(bot_data: dict, chat_id: str) -> bool:
 
 
 # ── Command handlers ───────────────────────────────────────────────────────────
+def _ensure_bot_data(context: ContextTypes.DEFAULT_TYPE) -> dict:
+    if context.bot_data is None:
+        context.bot_data = {}
+    return context.bot_data
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat or context.bot_data is None:
+    if not update.effective_chat or not update.effective_message:
         return
     chat_id = str(update.effective_chat.id)
-    is_new = _subscribe(context.bot_data, chat_id)
+    is_new = _subscribe(_ensure_bot_data(context), chat_id)
 
-    if is_new:
-        sub_note = "_Steady! I'll send you the word every day at 6am SGT lah~ 🎵_\n\n"
-    else:
-        sub_note = "_Eh, you already subscribed one leh~ Still sending daily at 6am SGT! 🎵_\n\n"
+    sub_note = (
+        "_Steady! I'll send you the word every day at 6am SGT lah~ 🎵_\n\n"
+        if is_new else
+        "_Eh, you already subscribed one leh~ Still sending daily at 6am SGT! 🎵_\n\n"
+    )
 
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         "🎵 *Miku's Singlish Word of the Day* 🎵\n\n"
         "@mikusinglishwordofthedaylehbot\n\n"
         "Aiyoh, Miku is here to teach you Singlish one word at a time lah~\n\n"
@@ -304,17 +311,17 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat or context.bot_data is None:
+    if not update.effective_chat or not update.effective_message:
         return
     chat_id = str(update.effective_chat.id)
-    removed = _unsubscribe(context.bot_data, chat_id)
+    removed = _unsubscribe(_ensure_bot_data(context), chat_id)
     if removed:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Okayyyy, Miku won't post here anymore lah~ 😢\n"
             "Use /start to re-subscribe anytime!",
         )
     else:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Eh, you weren't even subscribed here leh~\n"
             "Use /start to subscribe!",
         )
@@ -322,7 +329,7 @@ async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_my_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Auto-subscribe when bot is added to a group/channel, unsubscribe when removed."""
-    if not update.my_chat_member or context.bot_data is None:
+    if not update.my_chat_member:
         return
     result = update.my_chat_member
     new_status = result.new_chat_member.status
@@ -330,25 +337,27 @@ async def handle_my_chat_member(update: Update, context: ContextTypes.DEFAULT_TY
     chat_title = result.chat.title or chat_id
 
     if new_status in ("member", "administrator"):
-        _subscribe(context.bot_data, chat_id)
+        _subscribe(_ensure_bot_data(context), chat_id)
         logger.info(f"Auto-subscribed chat '{chat_title}' ({chat_id})")
         try:
             await context.bot.send_message(
                 chat_id    = chat_id,
-                text       = "🎵 Wah, Miku has arrived lah! I'll send Singlish Word of the Day here every 6am SGT~\nUse /unsubscribe to stop.",
+                text       = "🎵 Wah, Miku has arrived lah! I'll send Singlish Word of the Day here every 6am SGT~\nUse /start to confirm, /unsubscribe to stop.",
                 parse_mode = ParseMode.MARKDOWN,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Could not send welcome to {chat_id}: {e}")
     elif new_status in ("left", "kicked"):
-        _unsubscribe(context.bot_data, chat_id)
+        _unsubscribe(_ensure_bot_data(context), chat_id)
         logger.info(f"Auto-unsubscribed chat '{chat_title}' ({chat_id})")
 
 
 async def cmd_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat or not update.message:
+    if not update.effective_chat or not update.effective_message:
         return
-    msg = await update.message.reply_text(
+    # Auto-subscribe this chat so it also gets the daily broadcast
+    _subscribe(_ensure_bot_data(context), str(update.effective_chat.id))
+    msg = await update.effective_message.reply_text(
         "_Miku is preparing today's word… wait ah~ 🎵_",
         parse_mode=ParseMode.MARKDOWN,
     )
@@ -367,8 +376,10 @@ async def cmd_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_message:
+        return
     if not context.args:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Eh, you never say which word leh~\nUsage: `/word <singlish_word>`",
             parse_mode=ParseMode.MARKDOWN,
         )
@@ -380,7 +391,7 @@ async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         matches = [w for w in SINGLISH_WORDS if query in w["word"].lower()]
 
     if not matches:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             f"Catch no ball leh — I don't know `{query}` yet lor~\n"
             f"Try /list to see what I know!",
             parse_mode=ParseMode.MARKDOWN,
@@ -388,7 +399,7 @@ async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     e = matches[0]
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         f"📖 *{e['word'].upper()}*\n"
         f"_{e['type']}_ · /{e['pronunciation']}/\n\n"
         f"{e['meaning']}\n\n"
@@ -398,19 +409,21 @@ async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_message:
+        return
     unique = sorted({w["word"] for w in SINGLISH_WORDS})
     header = f"🎵 *My Singlish Vocabulary* ({len(unique)} words)\n\n"
     footer = "\n_More coming, steady bom pi pi!_ ✨"
 
-    chunks, cur = [], header
+    cur = header
     for word in unique:
         token = f"`{word}` • "
         if len(cur) + len(token) + len(footer) > 4000:
-            await update.message.reply_text(cur.rstrip(" •"), parse_mode=ParseMode.MARKDOWN)
+            await update.effective_message.reply_text(cur.rstrip(" •"), parse_mode=ParseMode.MARKDOWN)
             cur = ""
         cur += token
 
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         cur.rstrip(" •") + footer, parse_mode=ParseMode.MARKDOWN
     )
 
@@ -480,12 +493,12 @@ async def cmd_debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append("❌ Scheduler not running")
 
     # 7. Subscribed chats
-    subscribed = context.bot_data.get("subscribed_chats", set())
+    subscribed = _ensure_bot_data(context).get("subscribed_chats", set())
     lines.append(f"ℹ️ Subscribed chats: *{len(subscribed)}*")
     lines.append(f"ℹ️ This chat ID: `{update.effective_chat.id}`")
     lines.append("\n_Steady bom pi pi, Miku is ready lah!_ 🎤")
 
-    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN)
+    await update.effective_message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN)
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
