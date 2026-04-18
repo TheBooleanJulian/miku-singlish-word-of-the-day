@@ -112,17 +112,13 @@ Respond ONLY in this exact JSON (no markdown, no fences):
         }
 
 
-# ── Caption builder ────────────────────────────────────────────────────────────
-def build_telegram_caption(word_entry: dict, ai_content: dict, date_str: str) -> str:
+# ── Caption builders ───────────────────────────────────────────────────────────
+def build_photo_caption(word_entry: dict, date_str: str) -> str:
+    """Short caption on the card image — stays under Telegram's 1024-char limit."""
     word          = word_entry["word"]
     word_type     = word_entry["type"]
     pronunciation = word_entry["pronunciation"]
     meaning       = word_entry["meaning"]
-    examples      = ai_content.get("examples", [])
-    news_src      = ai_content.get("news_source", "")
-    news_hl       = ai_content.get("news_headline", "")
-    fun_fact      = ai_content.get("fun_fact", "")
-    body          = ai_content.get("telegram_caption", "")
 
     lines = [
         "🎵 *Miku Singlish word of the day leh?*",
@@ -133,7 +129,20 @@ def build_telegram_caption(word_entry: dict, ai_content: dict, date_str: str) ->
         f"_{word_type}_ · /{pronunciation}/",
         "",
         meaning,
-        "",
+    ]
+    return "\n".join(lines)
+
+
+def build_body_message(word_entry: dict, ai_content: dict) -> str:
+    """Follow-up text message with examples, Miku's post, news, and fun fact."""
+    word     = word_entry["word"]
+    examples = ai_content.get("examples", [])
+    news_src = ai_content.get("news_source", "")
+    news_hl  = ai_content.get("news_headline", "")
+    fun_fact = ai_content.get("fun_fact", "")
+    body     = ai_content.get("telegram_caption", "")
+
+    lines = [
         *[f"▸ _{ex}_" for ex in examples[:3]],
         "",
         "─" * 28,
@@ -182,17 +191,24 @@ async def broadcast_word_of_the_day(app: Application, word_entry: dict = None):
         output_path   = card_path,
     )
 
-    caption = build_telegram_caption(word_entry, ai_content, date_str)
+    caption = build_photo_caption(word_entry, date_str)
+    body    = build_body_message(word_entry, ai_content)
 
     for chat_id in list(subscribed):
         try:
             with open(card_path, "rb") as photo:
-                await app.bot.send_photo(
+                msg = await app.bot.send_photo(
                     chat_id    = chat_id,
                     photo      = photo,
                     caption    = caption,
                     parse_mode = ParseMode.MARKDOWN,
                 )
+            await app.bot.send_message(
+                chat_id          = chat_id,
+                text             = body,
+                parse_mode       = ParseMode.MARKDOWN,
+                reply_to_message_id = msg.message_id,
+            )
             logger.info(f"Posted to {chat_id}")
         except Exception as e:
             err = str(e).lower()
@@ -224,15 +240,22 @@ async def post_word_of_the_day_to_chat(bot: Bot, chat_id: str, word_entry: dict 
         output_path   = card_path,
     )
 
-    caption = build_telegram_caption(word_entry, ai_content, date_str)
+    caption = build_photo_caption(word_entry, date_str)
+    body    = build_body_message(word_entry, ai_content)
 
     with open(card_path, "rb") as photo:
-        await bot.send_photo(
+        msg = await bot.send_photo(
             chat_id    = chat_id,
             photo      = photo,
             caption    = caption,
             parse_mode = ParseMode.MARKDOWN,
         )
+    await bot.send_message(
+        chat_id             = chat_id,
+        text                = body,
+        parse_mode          = ParseMode.MARKDOWN,
+        reply_to_message_id = msg.message_id,
+    )
 
 
 # ── Subscription helpers ───────────────────────────────────────────────────────
