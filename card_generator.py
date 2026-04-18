@@ -117,11 +117,10 @@ def generate_card(
     title = "Miku Singlish word of the day leh?"
     glow  = Image.new("RGBA", img.size, (0, 0, 0, 0))
     gd    = ImageDraw.Draw(glow)
-    gd.text((TEXT_LEFT + 28, 36), title, font=f_title, fill=(0, 212, 200, 50))
+    gd.text((TEXT_LEFT, 36), title, font=f_title, fill=(0, 212, 200, 50))
     img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(8)))
     draw = ImageDraw.Draw(img)
-    draw.text((TEXT_LEFT,       40), "♪",  font=f_title, fill=PINK_ACCENT)
-    draw.text((TEXT_LEFT + 28,  36), title, font=f_title, fill=TEAL_PRIMARY)
+    draw.text((TEXT_LEFT, 36), title, font=f_title, fill=TEAL_PRIMARY)
 
     # ── WORD ───────────────────────────────────────────────────────────────────
     draw.text((TEXT_LEFT, 94), word.upper(), font=f_word, fill=WHITE)
@@ -131,9 +130,9 @@ def generate_card(
     type_text = f"  {word_type}  "
     type_w    = int(draw.textlength(type_text, font=f_tag))
     _rr(draw, [TEXT_LEFT, ty, TEXT_LEFT + type_w, ty + 26],
-        radius=6, fill=(0, 212, 200, 38), outline=TEAL_DIM, lw=1)
+        radius=6, fill=(0, 80, 76), outline=TEAL_DIM, lw=1)
     draw.text((TEXT_LEFT + type_w // 2, ty + 13), type_text,
-              font=f_tag, fill=TEAL_PRIMARY, anchor="mm")
+              font=f_tag, fill=WHITE, anchor="mm")
     draw.text((TEXT_LEFT + type_w + 12, ty + 13), f"/{pronunciation}/",
               font=f_tag, fill=GREY_MID, anchor="lm")
 
