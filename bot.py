@@ -34,6 +34,7 @@ PERSISTENCE_PATH = os.environ.get("PERSISTENCE_PATH", "./miku_bot.pkl")
 SGT = pytz.timezone("Asia/Singapore")
 
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
+_scheduler: "AsyncIOScheduler | None" = None
 
 
 # ── Word selection ─────────────────────────────────────────────────────────────
@@ -484,7 +485,7 @@ async def cmd_debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"❌ Gemini API: `{e}`")
 
     # 6. Scheduler
-    scheduler = context.application.bot_data.get("scheduler")
+    scheduler = _scheduler
     if scheduler and scheduler.running:
         jobs = scheduler.get_jobs()
         next_run = jobs[0].next_run_time.strftime("%Y-%m-%d %H:%M %Z") if jobs else "?"
@@ -535,9 +536,9 @@ def main():
     app.add_handler(CommandHandler("debug",       cmd_debug))
     app.add_handler(ChatMemberHandler(handle_my_chat_member, ChatMemberHandler.MY_CHAT_MEMBER))
 
-    scheduler = setup_scheduler(app)
-    app.bot_data["scheduler"] = scheduler
-    scheduler.start()
+    global _scheduler
+    _scheduler = setup_scheduler(app)
+    _scheduler.start()
 
     logger.info("Bot is live~ 🎵")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
