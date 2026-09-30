@@ -21,11 +21,9 @@ from apscheduler.triggers.cron import CronTrigger
 
 from singlish_words import SINGLISH_WORDS
 from card_generator import generate_card
+from thebooleanjulian_bot_core.logging_setup import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+setup_logging()
 logger = logging.getLogger("MikuSinglishBot")
 
 TELEGRAM_TOKEN  = os.environ["TELEGRAM_TOKEN"]
