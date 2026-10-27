@@ -1,0 +1,32 @@
+{
+  // Miku's Singlish Word of the Day on Cloudflare Workers (webhook + Cron Trigger + Supabase via Hyperdrive).
+  // Replaces bot.py, which polled on Zeabur. Daily post at 00:01 SGT = 16:01 UTC.
+  // Secrets: BOT_TOKEN, GEMINI_API_KEY, WEBHOOK_SECRET (moved with zeabur-migration/push_secrets.py / bot_cutover.py).
+  // Data: schema miku_singlish (TheBooleanJulian/thebooleanjulian-db); Hyperdrive "miku-singlish-db" logs in as
+  // miku_singlish_app, which can only touch that schema.
+  "name": "miku-singlish",
+  "account_id": "c580c4403524273d1bece674117472dd",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "vars": {
+    "PUBLIC_URL": "https://miku-singlish.thebooleanjulian.dev",
+    "BOT_USERNAME": "mikusinglishwordofthedaylehbot",
+    "BOT_NAME": "miku-singlish",
+    "ALLOW_NSFW": "0",
+    "GEMINI_MODEL": "gemini-2.5-flash"
+  },
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "f69844fb57194500a391f9c5be089e82" }],
+  // The broadcast calls itself once per 20 chats so each batch gets its own subrequest budget.
+  "services": [{ "binding": "SELF", "service": "miku-singlish" }],
+  "triggers": { "crons": ["1 16 * * *"] },
+  "assets": {
+    "directory": "./assets",
+    "binding": "ASSETS",
+    "run_worker_first": ["/", "/webhook", "/healthz", "/status", "/brand/*", "/internal/*"]
+  },
+  "routes": [{ "pattern": "miku-singlish.thebooleanjulian.dev", "custom_domain": true }],
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "observability": { "enabled": true }
+}
