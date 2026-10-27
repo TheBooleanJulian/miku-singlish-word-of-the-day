@@ -126,7 +126,14 @@ async function handleCommand(env, msg, cmd) {
       const date = sgtDate();
       const entry = pickWordForDate(date, allowNsfw(env));
       const lines = ['🔧 *Miku Debug Mode* — checking systems lah~\n'];
-      lines.push(`${env.BOT_TOKEN && env.GEMINI_API_KEY ? '✅' : '❌'} Secrets: \`BOT_TOKEN\`, \`GEMINI_API_KEY\``);
+      lines.push(`${env.BOT_TOKEN && env.WEBHOOK_SECRET ? '✅' : '❌'} Secrets: \`BOT_TOKEN\`, \`WEBHOOK_SECRET\``);
+      try {
+        const gw = await (await env.LLM.fetch('https://llm/healthz')).json();
+        const ready = Object.entries(gw.providers || {}).filter(([, v]) => v === 'configured').map(([k]) => k);
+        lines.push(`${ready.length ? '✅' : '❌'} LLM gateway: providers ${ready.join(', ') || 'none configured'}`);
+      } catch (err) {
+        lines.push(`❌ LLM gateway: \`${err.message.slice(0, 60)}\``);
+      }
       lines.push(`✅ Word bank: *${WORDS.length} words* loaded`);
       lines.push(`✅ Today's word (${date}): *${entry.word}*`);
       try {

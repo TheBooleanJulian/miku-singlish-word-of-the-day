@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { WORDS, sgtDate, sgtLong, pickWordForDate, findWord, parseContent, fallbackContent, buildPhotoCaption, buildBodyMessage, wordPool } from '../singlish.js';
+import { parseHeadlines, buildPrompt, WORDS, sgtDate, sgtLong, pickWordForDate, findWord, parseContent, fallbackContent, buildPhotoCaption, buildBodyMessage, wordPool } from '../singlish.js';
 
 test('sgtDate rolls over at Singapore midnight, not UTC midnight', () => {
   assert.equal(sgtDate(new Date('2026-10-27T15:59:00Z')), '2026-10-27'); // 23:59 SGT
@@ -44,4 +44,18 @@ test('body message carries examples, news and fun fact', () => {
   assert.match(body, /▸ _I feel so lah today lah!_/);
   assert.match(body, /📰 \*Referenced:\* News/);
   assert.match(body, /💡 \*Fun Fact:\*/);
+});
+
+test('parseHeadlines keeps recent items, decodes entities and CDATA', () => {
+  const now = new Date('2026-10-27T10:00:00Z');
+  const xml = `<rss><item><title><![CDATA[New MRT line &amp; bus routes]]></title><pubDate>Mon, 26 Oct 2026 08:00:00 +0800</pubDate></item>
+    <item><title>Old story</title><pubDate>Mon, 05 Oct 2026 08:00:00 +0800</pubDate></item></rss>`;
+  const items = parseHeadlines(xml, 'ST', now);
+  assert.deepEqual(items.map((i) => i.title), ['New MRT line & bus routes']);
+});
+
+test('prompt lists the headlines instead of asking for web search', () => {
+  const p = buildPrompt(WORDS[0], [{ title: 'MRT line opens', source: 'CNA' }]);
+  assert.match(p, /MRT line opens \(CNA\)/);
+  assert.doesNotMatch(p, /Google Search/);
 });

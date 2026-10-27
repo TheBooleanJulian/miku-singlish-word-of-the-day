@@ -32,14 +32,50 @@ export function findWord(query) {
   return WORDS.find((w) => w.word.toLowerCase() === q) || WORDS.find((w) => w.word.toLowerCase().includes(q));
 }
 
-export function buildPrompt(entry) {
+// Recent Singapore headlines from public RSS (Straits Times, then CNA as backup), so models without web
+// search (FreeLLMAPI's free pool) can still ground the post in real news. Never throws.
+const FEEDS = [
+  ['The Straits Times', 'https://www.straitstimes.com/news/singapore/rss.xml'],
+  ['CNA', 'https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=10416']
+];
+
+const decode = (s) => s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+
+export function parseHeadlines(xml, source, now = new Date(), limit = 8) {
+  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => {
+    const title = m[1].match(/<title>([\s\S]*?)<\/title>/)?.[1];
+    const date = m[1].match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1];
+    return { title: title && decode(title), source, at: date ? new Date(decode(date)) : null };
+  });
+  const weekAgo = now - 7 * 864e5;
+  return items.filter((i) => i.title && (!i.at || isNaN(i.at) || i.at >= weekAgo)).slice(0, limit);
+}
+
+export async function fetchHeadlines() {
+  for (const [source, url] of FEEDS) {
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'miku-singlish/1.0 (+https://miku-singlish.thebooleanjulian.dev)' }, signal: AbortSignal.timeout(10000) });
+      if (!res.ok) continue;
+      const items = parseHeadlines(await res.text(), source);
+      if (items.length) return items;
+    } catch {
+      // try the next feed
+    }
+  }
+  return [];
+}
+
+export function buildPrompt(entry, headlines = []) {
+  const news = headlines.length
+    ? `1. Pick 1-2 of these RECENT Singapore news headlines (past 7 days) to reference:\n${headlines.map((h) => `   - ${h.title} (${h.source})`).join('\n')}`
+    : '1. Think of a recent, well-known Singapore news story or everyday Singapore moment to reference.';
   return `You are Hatsune Miku — the iconic virtual vocaloid idol — fully fluent in Singlish after living in Singapore long enough to be a local.
 
 Today's Singlish Word of the Day is: **${entry.word}**
 Meaning: ${entry.meaning}
 
 Tasks:
-1. Use Google Search to find 1-2 RECENT Singapore news stories from the past 7 days.
+${news}
 2. Write a punchy Miku-in-Singapore post that:
    - Applies the word to real Singapore news you found
    - Sounds like Miku: cheerful, uses Singlish particles (lah, leh, sia, wah, etc.), references vocaloid/music life naturally
@@ -69,22 +105,24 @@ export function fallbackContent(entry) {
   };
 }
 
-// Gemini REST call with Google Search grounding. Returns parsed content, or the fallback on any failure.
+// Generation goes through thebooleanjulian-llm (service binding LLM, use case "singlish-daily"), which routes
+// to FreeLLMAPI first and holds every provider key; this Worker holds none. Fallback content on any failure.
 export async function generateMikuContent(env, entry, { timeoutMs = 120000 } = {}) {
-  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    const headlines = await fetchHeadlines();
+    const res = await env.LLM.fetch('https://llm/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-      body: JSON.stringify({ contents: [{ parts: [{ text: buildPrompt(entry) }] }], tools: [{ google_search: {} }] }),
+      headers: { 'Content-Type': 'application/json', 'X-TBJ-Service': 'miku-singlish', 'X-TBJ-Use-Case': 'singlish-daily' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: buildPrompt(entry, headlines) }], temperature: 0.9 }),
       signal: AbortSignal.timeout(timeoutMs)
     });
-    if (!res.ok) throw new Error(`Gemini ${res.status}`);
     const data = await res.json();
-    const text = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim();
-    return parseContent(text) || fallbackContent(entry);
+    if (!res.ok) throw new Error(`gateway ${res.status} ${data?.error?.code || ''} trace ${res.headers.get('x-tbj-trace-id') || '-'}`);
+    const content = parseContent(data.choices?.[0]?.message?.content);
+    if (!content) throw new Error(`unparseable reply from ${data.tbj?.provider} trace ${data.tbj?.trace_id}`);
+    return { ...content, provider: data.tbj?.provider };
   } catch (err) {
-    console.error(JSON.stringify({ level: 'warn', msg: 'gemini failed, using fallback', error: String(err.message) }));
+    console.error(JSON.stringify({ level: 'warn', msg: 'generation failed, using fallback', error: String(err.message) }));
     return fallbackContent(entry);
   }
 }
