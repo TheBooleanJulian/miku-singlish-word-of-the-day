@@ -28,3 +28,7 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Node / Cloudflare
+node_modules/
+.wrangler/
