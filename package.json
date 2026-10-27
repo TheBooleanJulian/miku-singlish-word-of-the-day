@@ -1,0 +1,13 @@
+{
+  "name": "miku-singlish-word-of-the-day",
+  "private": true,
+  "type": "module",
+  "description": "Miku's Singlish Word of the Day: Telegram bot on Cloudflare Workers",
+  "scripts": {
+    "test": "node --test",
+    "deploy": "npx wrangler deploy"
+  },
+  "dependencies": {
+    "thebooleanjulian-bot-core": "github:TheBooleanJulian/thebooleanjulian-bot-core#main"
+  }
+}
