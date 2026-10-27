@@ -1,7 +1,7 @@
 {
   // Miku's Singlish Word of the Day on Cloudflare Workers (webhook + Cron Trigger + Supabase via Hyperdrive).
   // Replaces bot.py, which polled on Zeabur. Daily post at 00:01 SGT = 16:01 UTC.
-  // Secrets: BOT_TOKEN, GEMINI_API_KEY, WEBHOOK_SECRET (moved with zeabur-migration/push_secrets.py / bot_cutover.py).
+  // Secrets: BOT_TOKEN, WEBHOOK_SECRET. No model keys here: generation goes through thebooleanjulian-llm (binding LLM).
   // Data: schema miku_singlish (TheBooleanJulian/thebooleanjulian-db); Hyperdrive "miku-singlish-db" logs in as
   // miku_singlish_app, which can only touch that schema.
   "name": "miku-singlish",
@@ -14,12 +14,14 @@
     "PUBLIC_URL": "https://miku-singlish.thebooleanjulian.dev",
     "BOT_USERNAME": "mikusinglishwordofthedaylehbot",
     "BOT_NAME": "miku-singlish",
-    "ALLOW_NSFW": "0",
-    "GEMINI_MODEL": "gemini-2.5-flash"
+    "ALLOW_NSFW": "0"
   },
   "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "f69844fb57194500a391f9c5be089e82" }],
   // The broadcast calls itself once per 20 chats so each batch gets its own subrequest budget.
-  "services": [{ "binding": "SELF", "service": "miku-singlish" }],
+  "services": [
+    { "binding": "SELF", "service": "miku-singlish" },
+    { "binding": "LLM", "service": "thebooleanjulian-llm" }  // LLM gateway, use case "singlish-daily"
+  ],
   "triggers": { "crons": ["1 16 * * *"] },
   "assets": {
     "directory": "./assets",

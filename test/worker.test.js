@@ -23,6 +23,16 @@ function fakeDb() {
   return { sql, chats, posts };
 }
 
+// Stands in for the thebooleanjulian-llm service binding.
+let llmCalls = [];
+async function fakeLlm(url, init) {
+  if (String(url).endsWith('/healthz')) return Response.json({ providers: { freellmapi: 'configured' } });
+  const body = JSON.parse(init.body);
+  llmCalls.push({ headers: init.headers, prompt: body.messages[0].content });
+  const content = { telegram_caption: 'Wah Miku post lah', examples: ['e1', 'e2', 'e3'], news_headline: 'N', news_source: 'CNA', fun_fact: 'F' };
+  return Response.json({ choices: [{ message: { content: JSON.stringify(content) } }], tbj: { provider: 'freellmapi', trace_id: 't' } });
+}
+
 const ctx = () => { const p = []; return { waitUntil: (x) => p.push(x), done: () => Promise.all(p) }; };
 
 beforeEach(() => {
@@ -30,9 +40,8 @@ beforeEach(() => {
   realFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
     url = String(url);
-    if (url.includes('generativelanguage.googleapis.com')) {
-      const content = { telegram_caption: 'Wah Miku post lah', examples: ['e1', 'e2', 'e3'], news_headline: 'N', news_source: 'CNA', fun_fact: 'F' };
-      return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(content) }] } }] });
+    if (url.includes('straitstimes.com') || url.includes('channelnewsasia.com')) {
+      return new Response('<rss><channel><item><title>MRT line opens</title><pubDate>' + new Date().toUTCString() + '</pubDate></item></channel></rss>');
     }
     const method = url.split('/').pop();
     const body = JSON.parse(init.body);
@@ -47,7 +56,8 @@ function env(db = fakeDb()) {
     SQL: db.sql, BOT_TOKEN: '1:x', WEBHOOK_SECRET: 's3cret', GEMINI_API_KEY: 'k', PUBLIC_URL: 'https://miku-singlish.thebooleanjulian.dev',
     BOT_USERNAME: 'mikusinglishwordofthedaylehbot',
     ASSETS: { fetch: () => new Response('asset') },
-    SELF: { fetch: (url, init) => worker.fetch(new Request('https://self/internal/batch', init), env.current, ctx()) }
+    SELF: { fetch: (url, init) => worker.fetch(new Request('https://self/internal/batch', init), env.current, ctx()) },
+    LLM: { fetch: fakeLlm }
   };
 }
 
@@ -90,11 +100,11 @@ test('daily cron generates once and reaches every chat in batches of 20', async 
   for (let i = 0; i < 45; i++) db.chats.set(String(-1000 - i), null);
   const e = env(db);
   env.current = e;
-  let gemini = 0;
-  const f = globalThis.fetch;
-  globalThis.fetch = (url, init) => { if (String(url).includes('generativelanguage')) gemini++; return f(url, init); };
+  llmCalls = [];
   await worker.scheduled({ cron: '1 16 * * *' }, e, ctx());
-  assert.equal(gemini, 1);
+  assert.equal(llmCalls.length, 1);
+  assert.equal(llmCalls[0].headers['X-TBJ-Use-Case'], 'singlish-daily');
+  assert.match(llmCalls[0].prompt, /MRT line opens/);
   assert.equal(sent.filter((s) => s.method === 'sendPhoto').length, 45);
   assert.equal(sent.filter((s) => s.method === 'sendMessage').length, 45);
 });
