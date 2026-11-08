@@ -25,6 +25,8 @@ test('findWord matches exact first, then substring', () => {
   assert.equal(findWord('LAH').word, 'lah');
   assert.ok(findWord('alama').word.includes('alama'));
   assert.equal(findWord('zzzz-not-a-word'), undefined);
+  assert.equal(findWord('wa lao').word, 'walao');     // merged spellings still resolve
+  assert.equal(findWord('bojio').word, 'bo jio');
 });
 
 test('parseContent handles fences and stray text, and rejects junk', () => {
@@ -40,7 +42,9 @@ test('Wiktionary words merge after the curated list, deduped, with a credit line
   assert.deepEqual(merged.map((w) => w.word), ['wah lau', 'shiok']);
   assert.equal(WORDS[0].word, 'lah');
   const imported = WORDS.filter((w) => w.source);
-  const keys = new Set(WORDS.filter((w) => !w.source).map((w) => normaliseWord(w.word)));
+  const curated = WORDS.filter((w) => !w.source);
+  const keys = new Set(curated.map((w) => normaliseWord(w.word)));
+  assert.equal(keys.size, curated.length);   // no duplicate spellings in words.json either
   for (const w of imported) {   // imports never repeat a curated word or each other
     const k = normaliseWord(w.word);
     assert.ok(!keys.has(k), w.word);
