@@ -1,9 +1,32 @@
 // Word of the day: pick, Gemini content, message formats. Ported from bot.py; the prompt and the
 // Telegram copy are unchanged. Messages use Telegram's legacy Markdown, as before.
-import WORDS from './words.json' with { type: 'json' };
+import CURATED from './words.json' with { type: 'json' };
+import WIKTIONARY from './wiktionary_words.json' with { type: 'json' };
 
 export const TZ = 'Asia/Singapore';
-export { WORDS };
+
+// Same dedupe key as singlish_words.normalise_word: "Wah-lau", "wah lau", "wahlau" are one word.
+export const normaliseWord = (w) => w.toLowerCase().replace(/[^0-9a-z]/g, '');
+
+// Hand-curated words first, then Wiktionary imports (CC BY-SA 4.0, scripts/import_wiktionary.py)
+// that the curated list doesn't already have.
+export function mergeWords(curated, extra) {
+  const seen = new Set(curated.map((w) => normaliseWord(w.word)));
+  const out = [...curated];
+  for (const e of extra) {
+    const key = normaliseWord(e.word);
+    if (key && !seen.has(key)) { seen.add(key); out.push(e); }
+  }
+  return out;
+}
+
+export const WORDS = mergeWords(CURATED, WIKTIONARY);
+
+// CC BY-SA attribution for imported entries; '' for curated ones. Plain text: legacy Markdown
+// can't nest a link inside italics.
+export function sourceCredit(entry) {
+  return entry.source ? `Definition: [Wiktionary](${entry.source}), CC BY-SA 4.0` : '';
+}
 
 // Singapore calendar date "YYYY-MM-DD". (bot.py used date.today() on a UTC server, so a 00:01 SGT post
 // would have picked the previous day's word.)
@@ -152,7 +175,8 @@ export function buildPhotoCaption(entry, dateStr) {
     `📖 *${entry.word.toUpperCase()}*`,
     `_${entry.type}_ · /${entry.pronunciation}/`,
     '',
-    entry.meaning
+    entry.meaning,
+    ...(entry.source ? ['', sourceCredit(entry)] : [])
   ].join('\n');
 }
 
