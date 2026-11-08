@@ -52,7 +52,10 @@ export function pickWordForDate(date, allowNsfw = false) {
 
 export function findWord(query) {
   const q = query.toLowerCase().trim();
-  return WORDS.find((w) => w.word.toLowerCase() === q) || WORDS.find((w) => w.word.toLowerCase().includes(q));
+  const key = normaliseWord(q);   // "wa lao" finds "walao", "bojio" finds "bo jio"
+  return WORDS.find((w) => w.word.toLowerCase() === q)
+    || (key && WORDS.find((w) => normaliseWord(w.word) === key))
+    || WORDS.find((w) => w.word.toLowerCase().includes(q));
 }
 
 // Recent Singapore headlines from public RSS (Straits Times, then CNA as backup), so models without web

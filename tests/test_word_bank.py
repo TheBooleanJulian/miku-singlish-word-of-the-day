@@ -36,6 +36,10 @@ class WordBankTests(unittest.TestCase):
             # Photo captions are capped at 1024 chars by Telegram.
             self.assertLessEqual(len(e["meaning"]), 300, e["word"])
 
+    def test_curated_list_has_no_duplicate_spellings(self):
+        keys = [normalise_word(w["word"]) for w in CURATED_WORDS]
+        self.assertEqual(len(keys), len(set(keys)))
+
     def test_normalise_word_collapses_spacing_and_hyphens(self):
         self.assertEqual(normalise_word("Wah-Lau"), normalise_word("wah lau"))
 

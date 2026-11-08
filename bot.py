@@ -19,7 +19,7 @@ from telegram.constants import ParseMode
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from singlish_words import SINGLISH_WORDS
+from singlish_words import SINGLISH_WORDS, normalise_word
 from card_generator import generate_card
 from thebooleanjulian_bot_core.logging_setup import setup_logging
 
@@ -397,6 +397,8 @@ async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = " ".join(context.args).lower().strip()
     matches = [w for w in SINGLISH_WORDS if w["word"].lower() == query]
+    if not matches and normalise_word(query):   # "wa lao" finds "walao"
+        matches = [w for w in SINGLISH_WORDS if normalise_word(w["word"]) == normalise_word(query)]
     if not matches:
         matches = [w for w in SINGLISH_WORDS if query in w["word"].lower()]
 
