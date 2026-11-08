@@ -7,6 +7,12 @@
   "name": "miku-singlish",
   "account_id": "c580c4403524273d1bece674117472dd",
   "main": "worker.js",
+  // Workers Builds (deploy on push) installs from package-lock.json, which pins an older bot-core.
+  // Bots track bot-core @main, so install main first, the same as the bot-core fan-out. The fan-out
+  // sets BOT_CORE_SHA and installs that exact commit itself, so this step does nothing there.
+  "build": {
+    "command": "node -e \"process.env.BOT_CORE_SHA || require('child_process').execSync('npm install --no-save --no-audit --no-fund github:TheBooleanJulian/thebooleanjulian-bot-core#main', { stdio: 'inherit' })\""
+  },
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
