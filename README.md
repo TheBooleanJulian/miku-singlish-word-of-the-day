@@ -41,7 +41,7 @@ Every day at 6am SGT, the bot deterministically picks a Singlish word from a 1,2
 | AI | Google Gemini via `google-genai` |
 | Card rendering | Pillow 10.x |
 | Persistence | `PicklePersistence` (subscribed chats) |
-| Hosting | Zeabur (Docker via `zbpack.json`) |
+| Hosting | Cloudflare Workers (`worker.js`, webhook + Cron Trigger; chats in Supabase). `bot.py` is the legacy Zeabur version, kept for reference |
 
 ## Screenshots
 
@@ -86,13 +86,16 @@ cp .env.example .env
 python bot.py
 ```
 
-## Deploy to Zeabur
+## Deploy
 
-1. Push this repo to GitHub
-2. [Zeabur Dashboard](https://zeabur.com) → **New Project** → **Deploy from GitHub**
-3. Select this repo
-4. **Environment** tab → add `TELEGRAM_TOKEN` and `GEMINI_API_KEY`
-5. **Deploy** — Zeabur reads `zbpack.json` for build and start commands automatically
+The live bot is the `miku-singlish` Cloudflare Worker (`wrangler.jsonc`). It deploys automatically:
+
+- **On every push to `master`**, through Cloudflare Workers Builds (repo connected under Workers & Pages → miku-singlish → Settings → Builds). Build logs are under Deployments, and the commit gets a "Workers Builds" check on GitHub.
+- **On every bot-core release**, through the bot-core fan-out (`thebooleanjulian-bot-core/deploy/workers-fleet.json`), which goes canary first.
+
+The `build.command` in `wrangler.jsonc` installs bot-core `#main` before bundling, so a push never rolls bot-core back to the commit pinned in `package-lock.json`. Secrets (`BOT_TOKEN`, `WEBHOOK_SECRET`) live on the Worker and survive deploys. To deploy by hand: `npx wrangler deploy`.
+
+`zbpack.json` / `Dockerfile` are left over from the suspended Zeabur service (rollback only).
 
 ## Commands
 
