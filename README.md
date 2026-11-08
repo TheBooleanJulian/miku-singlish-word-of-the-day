@@ -19,14 +19,14 @@
 
 ## What it does
 
-Every day at 6am SGT, the bot deterministically picks a Singlish word from a 1,292-word bank (412 hand-curated + 880 from Wiktionary), asks Gemini to generate a fresh first-person Miku-flavoured example for it, renders both onto a 1080×640 Pillow card, and posts it to every subscribed chat. Chats auto-subscribe when the bot is added to a group/channel, and can also subscribe/unsubscribe manually with `/start` and `/unsubscribe`.
+Every day at 6am SGT, the bot deterministically picks a Singlish word from a 1,290-word bank (410 hand-curated + 880 from Wiktionary), asks Gemini to generate a fresh first-person Miku-flavoured example for it, renders both onto a 1080×640 Pillow card, and posts it to every subscribed chat. Chats auto-subscribe when the bot is added to a group/channel, and can also subscribe/unsubscribe manually with `/start` and `/unsubscribe`.
 
 ## Features
 
 - Daily 6am SGT post, deterministic word selection (consistent across restarts)
 - Gemini-generated first-person Miku examples, created fresh at post time (not pre-written)
 - 1080×640 Pillow card — dark premium look, teal accents, Migu figure
-- 1,292-word Singlish bank: 412 hand-curated (`singlish_words.py`) + 880 imported from Wiktionary (`wiktionary_words.json`)
+- 1,290-word Singlish bank: 410 hand-curated (`singlish_words.py`) + 880 imported from Wiktionary (`wiktionary_words.json`)
 - Auto-subscribe on group/channel add, auto-unsubscribe on removal; manual `/start` / `/unsubscribe`
 - Multi-chat broadcast — one word, sent to every subscribed chat
 - `/debug` command for deployment health checks (env vars, card render, scheduler status)
@@ -144,7 +144,7 @@ Don't hand-edit `wiktionary_words.json`. Fix the word in `singlish_words.py` ins
 ## Status / Roadmap
 
 - [x] Daily 6am SGT scheduled post with deterministic word selection
-- [x] 1,292-word Singlish bank with live AI-generated examples
+- [x] 1,290-word Singlish bank with live AI-generated examples
 - [x] Auto-subscribe/unsubscribe on group/channel add/remove
 - [x] Multi-chat broadcast
 - [x] `/debug` health-check command
@@ -153,6 +153,7 @@ Don't hand-edit `wiktionary_words.json`. Fix the word in `singlish_words.py` ins
 
 ## Changelog
 
+- **2026-11-08** — Merged duplicate curated spellings (walao / wa lao, bo jio / bojio); `/word` matches either spelling
 - **2026-11-08** — Imported 880 Singlish / Singapore English entries from Wiktionary (CC BY-SA 4.0), deduped against the curated list; credit line on those posts
 - **2026-04-20** — Store scheduler in a module-level variable to prevent pickle errors
 - **2026-04-18** — Switched from Claude to Gemini 2.5 Flash; added multi-chat subscription (auto-subscribe/unsubscribe)
