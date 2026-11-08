@@ -142,7 +142,9 @@ Don't hand-edit `wiktionary_words.json`. Fix the word in `singlish_words.py` ins
 - **Canvas:** 1080 × 640px
 - **Layout:** Text panel (left, 0–688px) | Migu panel (right, 700–1080px)
 - **Palette:** `#00d4c8` teal on `#08101a` deep dark
-- **Fonts:** DejaVu (bundled with most Linux distros — drop JetBrains Mono into `fonts/` for the full aesthetic)
+- **Fonts:** DejaVu Sans / Sans Mono, in `assets/fonts/` (free licence, see `assets/fonts/LICENSE`)
+- **Rendering:** the Worker builds the card as SVG (`card.js`, same coordinates as the Pillow `card_generator.py`) and rasterises it with [resvg](https://github.com/linebender/resvg) compiled to WebAssembly (`@resvg/resvg-wasm`), about 100–250 ms per card. It is rendered once per post, uploaded to the first chat, and Telegram's file_id is reused for the rest. If rendering fails, the post goes out with the plain Migu photo.
+- **Preview:** `https://miku-singlish.thebooleanjulian.dev/card/today.png` (once today's post exists)
 
 ## Status / Roadmap
 

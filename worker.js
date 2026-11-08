@@ -5,12 +5,13 @@
 //   POST /internal/batch   one broadcast batch, called through the SELF service binding (each batch is its own
 //                          invocation, so the free plan's 50-subrequest limit applies per 20 chats, not per run)
 //   GET  /status /healthz  bot-core status page and health JSON
+//   GET  /card/today.png   preview of today's word card (card.js, rendered with resvg; once the post exists)
 //
 // Data: schema miku_singlish in the shared Supabase project, via Hyperdrive (thebooleanjulian-bot-core/db).
 // Commands and copy follow bot.py; the daily time moved from 06:00 to 00:01 SGT.
 import { log, api, verifyWebhook, parseCommand, healthz, statusPage, serveBrand } from 'thebooleanjulian-bot-core';
 import { withDb } from 'thebooleanjulian-bot-core/db';
-import { WORDS, sgtDate, sgtLong, pickWordForDate, findWord, generateMikuContent, buildPhotoCaption, buildBodyMessage, sourceCredit } from './singlish.js';
+import { WORDS, sgtDate, sgtLong, pickWordForDate, findWord, generateMikuContent, buildPhotoCaption, buildBodyMessage, sourceCredit, pron } from './singlish.js';
 
 const BATCH = 20;
 const DAILY_TIME = '00:01';
@@ -54,8 +55,67 @@ async function sendMd(env, method, params) {
 const say = (env, chatId, text) => sendMd(env, 'sendMessage', { chat_id: chatId, text });
 
 async function postToChat(env, chatId, post) {
-  await sendMd(env, 'sendPhoto', { chat_id: chatId, photo: `${env.PUBLIC_URL}/sgmigu.png`, caption: buildPhotoCaption(post.entry, sgtLong()) });
+  await sendCard(env, chatId, post, buildPhotoCaption(post.entry, sgtLong()));
   await sendMd(env, 'sendMessage', { chat_id: chatId, text: buildBodyMessage(post.content), disable_web_page_preview: true });
+}
+
+// ── word card ──────────────────────────────────────────────────────────────
+// The card is rendered once per post and uploaded to the first chat; Telegram's file_id is reused for
+// the rest of the batch. If rendering fails the post still goes out, with the plain Migu photo.
+const cardFileIds = new Map();   // "<date>|<word>" -> Telegram file_id, per isolate
+
+async function renderCard(env, post) {
+  const { renderCardPng } = await import('./card-worker.js');   // lazy: resvg wasm only loads when needed
+  return renderCardPng(env, post);
+}
+
+async function sendCard(env, chatId, post, caption) {
+  const key = `${post.date}|${post.entry.word}`;
+  if (cardFileIds.has(key)) return sendMd(env, 'sendPhoto', { chat_id: chatId, photo: cardFileIds.get(key), caption });
+  let png = null;
+  try {
+    png = await renderCard(env, post);
+  } catch (err) {
+    log.warn('card render failed, sending the plain photo', { error: err.message });
+  }
+  if (!png) return sendMd(env, 'sendPhoto', { chat_id: chatId, photo: `${env.PUBLIC_URL}/sgmigu.png`, caption });
+  const msg = await uploadPhoto(env, chatId, png, caption);
+  const fileId = msg.photo?.at(-1)?.file_id;
+  if (fileId) cardFileIds.set(key, fileId);
+  return msg;
+}
+
+// sendPhoto with the PNG bytes (multipart), with sendMd's plain-text retry and error shape.
+async function uploadPhoto(env, chatId, png, caption, parseMode = 'Markdown') {
+  const form = new FormData();
+  form.append('chat_id', String(chatId));
+  form.append('caption', caption);
+  if (parseMode) form.append('parse_mode', parseMode);
+  form.append('photo', new Blob([png], { type: 'image/png' }), 'miku-word-of-the-day.png');
+  const res = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendPhoto`, { method: 'POST', body: form });
+  const body = await res.json().catch(() => ({}));
+  if (body.ok) return body.result;
+  if (parseMode && res.status === 400 && /parse entities/i.test(body.description || '')) return uploadPhoto(env, chatId, png, caption, null);
+  const err = new Error(`sendPhoto failed: ${res.status} ${body.description || ''}`);
+  err.status = res.status;
+  throw err;
+}
+
+// GET /card/today.png: preview of today's card. Only once the cron has stored today's post, so a
+// public URL can never trigger generation; cached for an hour.
+async function cardPreview(request, env, ctx) {
+  const cache = caches.default;
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const date = sgtDate();
+  const stored = await db.getPost(env, date);
+  if (!stored) return new Response("today's post isn't generated yet", { status: 404 });
+  const entry = WORDS.find((w) => w.word === stored.word) || pickWordForDate(date, allowNsfw(env));
+  const res = new Response(await renderCard(env, { date, entry, content: stored.content }), {
+    headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' }
+  });
+  ctx.waitUntil(cache.put(request, res.clone()));
+  return res;
 }
 
 // ── commands ───────────────────────────────────────────────────────────────
@@ -109,7 +169,7 @@ async function handleCommand(env, msg, cmd) {
       const credit = sourceCredit(e);
       return sendMd(env, 'sendMessage', {
         chat_id: chatId,
-        text: `📖 *${e.word.toUpperCase()}*\n_${e.type}_ · /${e.pronunciation}/\n\n${e.meaning}\n\n${credit ? `${credit}\n\n` : ''}_Use /today to see a live post with fresh examples!_`,
+        text: `📖 *${e.word.toUpperCase()}*\n_${e.type}_ · ${pron(e)}\n\n${e.meaning}\n\n${credit ? `${credit}\n\n` : ''}_Use /today to see a live post with fresh examples!_`,
         disable_web_page_preview: true
       });
     }
@@ -232,6 +292,7 @@ export default {
       const ok = await sendBatch(env, chatIds.slice(0, BATCH), post);
       return Response.json({ ok });
     }
+    if (pathname === '/card/today.png' && request.method === 'GET') return cardPreview(request, env, ctx);
     if (pathname === '/healthz' || pathname === '/status' || pathname === '/') {
       let checks, count = null, post = null;
       try {

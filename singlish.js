@@ -168,6 +168,10 @@ export function parseContent(text) {
 
 const RULE = '─'.repeat(28);
 
+// "/can make it/": Telegram turns "/can" + space into a bot-command link. A zero-width non-joiner after
+// the slash stops that without changing how it looks.
+export const pron = (entry) => `/\u200c${entry.pronunciation}/`;
+
 // Short caption under the photo (Telegram caps captions at 1024 chars).
 export function buildPhotoCaption(entry, dateStr) {
   return [
@@ -176,7 +180,7 @@ export function buildPhotoCaption(entry, dateStr) {
     RULE,
     '',
     `📖 *${entry.word.toUpperCase()}*`,
-    `_${entry.type}_ · /${entry.pronunciation}/`,
+    `_${entry.type}_ · ${pron(entry)}`,
     '',
     entry.meaning,
     ...(entry.source ? ['', sourceCredit(entry)] : [])

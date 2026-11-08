@@ -8,6 +8,7 @@
     "deploy": "npx wrangler deploy"
   },
   "dependencies": {
+    "@resvg/resvg-wasm": "2.6.2",
     "thebooleanjulian-bot-core": "github:TheBooleanJulian/thebooleanjulian-bot-core#main"
   }
 }
