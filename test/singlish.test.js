@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseHeadlines, buildPrompt, WORDS, sgtDate, sgtLong, pickWordForDate, findWord, parseContent, fallbackContent, buildPhotoCaption, buildBodyMessage, wordPool } from '../singlish.js';
+import { parseHeadlines, buildPrompt, WORDS, sgtDate, sgtLong, pickWordForDate, findWord, parseContent, fallbackContent, buildPhotoCaption, buildBodyMessage, wordPool, mergeWords, normaliseWord, sourceCredit } from '../singlish.js';
 
 test('sgtDate rolls over at Singapore midnight, not UTC midnight', () => {
   assert.equal(sgtDate(new Date('2026-10-27T15:59:00Z')), '2026-10-27'); // 23:59 SGT
@@ -33,6 +33,23 @@ test('parseContent handles fences and stray text, and rejects junk', () => {
   assert.equal(parseContent('Here you go: ' + json).telegram_caption, 'hi');
   assert.equal(parseContent('no json here'), null);
   assert.equal(parseContent('{"other":1}'), null);
+});
+
+test('Wiktionary words merge after the curated list, deduped, with a credit line', () => {
+  const merged = mergeWords([{ word: 'wah lau' }], [{ word: 'Wah-Lau' }, { word: 'shiok' }, { word: 'shiok' }]);
+  assert.deepEqual(merged.map((w) => w.word), ['wah lau', 'shiok']);
+  assert.equal(WORDS[0].word, 'lah');
+  const imported = WORDS.filter((w) => w.source);
+  const keys = new Set(WORDS.filter((w) => !w.source).map((w) => normaliseWord(w.word)));
+  for (const w of imported) {   // imports never repeat a curated word or each other
+    const k = normaliseWord(w.word);
+    assert.ok(!keys.has(k), w.word);
+    keys.add(k);
+  }
+  assert.ok(imported.length > 800);
+  assert.match(buildPhotoCaption(imported[0], 'x'), /Definition: \[Wiktionary\]\(https:\/\/en\.wiktionary\.org\/wiki\/[^)_]+\), CC BY-SA 4\.0$/);
+  assert.equal(sourceCredit(WORDS[0]), '');
+  assert.doesNotMatch(buildPhotoCaption(WORDS[0], 'x'), /Wiktionary/);
 });
 
 test('photo caption stays under Telegram\'s 1024-char limit for every word', () => {

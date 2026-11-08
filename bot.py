@@ -129,7 +129,18 @@ def build_photo_caption(word_entry: dict, date_str: str) -> str:
         "",
         meaning,
     ]
+    credit = source_credit(word_entry)
+    if credit:
+        lines += ["", credit]
     return "\n".join(lines)
+
+
+def source_credit(word_entry: dict) -> str:
+    """CC BY-SA attribution for entries imported from Wiktionary ('' for curated)."""
+    if not word_entry.get("source"):
+        return ""
+    # Legacy Markdown can't nest a link inside italics, so keep this plain.
+    return f"Definition: [Wiktionary]({word_entry['source']}), CC BY-SA 4.0"
 
 
 def build_body_message(word_entry: dict, ai_content: dict) -> str:
@@ -398,12 +409,15 @@ async def cmd_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     e = matches[0]
+    credit = source_credit(e)
     await update.effective_message.reply_text(
         f"📖 *{e['word'].upper()}*\n"
         f"_{e['type']}_ · /{e['pronunciation']}/\n\n"
         f"{e['meaning']}\n\n"
-        f"_Use /today to see a live post with fresh examples!_",
+        + (f"{credit}\n\n" if credit else "")
+        + "_Use /today to see a live post with fresh examples!_",
         parse_mode=ParseMode.MARKDOWN,
+        disable_web_page_preview=True,
     )
 
 

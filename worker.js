@@ -10,7 +10,7 @@
 // Commands and copy follow bot.py; the daily time moved from 06:00 to 00:01 SGT.
 import { log, api, verifyWebhook, parseCommand, healthz, statusPage, serveBrand } from 'thebooleanjulian-bot-core';
 import { withDb } from 'thebooleanjulian-bot-core/db';
-import { WORDS, sgtDate, sgtLong, pickWordForDate, findWord, generateMikuContent, buildPhotoCaption, buildBodyMessage } from './singlish.js';
+import { WORDS, sgtDate, sgtLong, pickWordForDate, findWord, generateMikuContent, buildPhotoCaption, buildBodyMessage, sourceCredit } from './singlish.js';
 
 const BATCH = 20;
 const DAILY_TIME = '00:01';
@@ -106,7 +106,12 @@ async function handleCommand(env, msg, cmd) {
       if (!cmd.args) return say(env, chatId, 'Eh, you never say which word leh~\nUsage: `/word <singlish_word>`');
       const e = findWord(cmd.args);
       if (!e) return say(env, chatId, `Catch no ball leh — I don't know \`${cmd.args}\` yet lor~\nTry /list to see what I know!`);
-      return say(env, chatId, `📖 *${e.word.toUpperCase()}*\n_${e.type}_ · /${e.pronunciation}/\n\n${e.meaning}\n\n_Use /today to see a live post with fresh examples!_`);
+      const credit = sourceCredit(e);
+      return sendMd(env, 'sendMessage', {
+        chat_id: chatId,
+        text: `📖 *${e.word.toUpperCase()}*\n_${e.type}_ · /${e.pronunciation}/\n\n${e.meaning}\n\n${credit ? `${credit}\n\n` : ''}_Use /today to see a live post with fresh examples!_`,
+        disable_web_page_preview: true
+      });
     }
     case 'list': {
       const unique = [...new Set(WORDS.map((w) => w.word))].sort();
