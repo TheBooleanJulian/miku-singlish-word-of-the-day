@@ -21,3 +21,4 @@ a separate commercial license is available. Because the copyright holder (TheBoo
 
 - The AGPLv3 track stays free and open for the community regardless of the commercial track existing.
 - A commercial license does not grant trademark rights.
+- A commercial license does not cover `wiktionary_words.json`. Those definitions come from Wiktionary contributors under CC BY-SA 4.0, which TheBooleanJulian doesn't own and can't relicense. They stay under CC BY-SA 4.0; leave the file out if those terms don't suit your use.
