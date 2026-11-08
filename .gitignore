@@ -15,6 +15,9 @@ build/
 venv/
 env/
 
+# Wiktionary importer page cache
+.wikt-cache/
+
 # Temp card outputs
 /tmp/
 *.png.tmp

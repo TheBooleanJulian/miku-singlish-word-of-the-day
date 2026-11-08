@@ -19,14 +19,14 @@
 
 ## What it does
 
-Every day at 6am SGT, the bot deterministically picks a Singlish word from a 412-word bank, asks Gemini to generate a fresh first-person Miku-flavoured example for it, renders both onto a 1080×640 Pillow card, and posts it to every subscribed chat. Chats auto-subscribe when the bot is added to a group/channel, and can also subscribe/unsubscribe manually with `/start` and `/unsubscribe`.
+Every day at 6am SGT, the bot deterministically picks a Singlish word from a 1,292-word bank (412 hand-curated + 880 from Wiktionary), asks Gemini to generate a fresh first-person Miku-flavoured example for it, renders both onto a 1080×640 Pillow card, and posts it to every subscribed chat. Chats auto-subscribe when the bot is added to a group/channel, and can also subscribe/unsubscribe manually with `/start` and `/unsubscribe`.
 
 ## Features
 
 - Daily 6am SGT post, deterministic word selection (consistent across restarts)
 - Gemini-generated first-person Miku examples, created fresh at post time (not pre-written)
 - 1080×640 Pillow card — dark premium look, teal accents, Migu figure
-- 412-word Singlish bank (`singlish_words.py`)
+- 1,292-word Singlish bank: 412 hand-curated (`singlish_words.py`) + 880 imported from Wiktionary (`wiktionary_words.json`)
 - Auto-subscribe on group/channel add, auto-unsubscribe on removal; manual `/start` / `/unsubscribe`
 - Multi-chat broadcast — one word, sent to every subscribed chat
 - `/debug` command for deployment health checks (env vars, card render, scheduler status)
@@ -101,7 +101,7 @@ python bot.py
 | `/start` / `/help` | Welcome message + command list, subscribes this chat |
 | `/today` | Trigger today's word immediately (with AI-generated example) |
 | `/word <word>` | Look up any Singlish word in the bank |
-| `/list` | See all 412 words |
+| `/list` | See every word in the bank |
 | `/unsubscribe` | Stop daily posts in this chat |
 | `/debug` | Health check: env vars, card render, Gemini ping, scheduler status |
 
@@ -121,6 +121,19 @@ Edit `singlish_words.py` and append to `SINGLISH_WORDS`:
 
 No need to add examples — Gemini generates fresh first-person Miku examples at post time.
 
+### Wiktionary import
+
+On top of the curated list, `singlish_words.py` loads `wiktionary_words.json`: entries pulled from English Wiktionary's [Singlish](https://en.wiktionary.org/wiki/Category:Singlish) and [Singapore English](https://en.wiktionary.org/wiki/Category:Singapore_English) categories. Only senses labelled Singapore/Singlish are kept; words already in the curated list are skipped (curated definitions win); alternative spellings borrow their main entry's meaning; senses labelled vulgar, offensive, derogatory or slur are marked `nsfw`. Each entry has a `source` URL, and the bot shows a "Definition: Wiktionary, CC BY-SA 4.0" credit line on those posts.
+
+To refresh it (stdlib only, ~25 min uncached):
+
+```bash
+python scripts/import_wiktionary.py --cache-dir .wikt-cache
+python -m unittest discover tests
+```
+
+Don't hand-edit `wiktionary_words.json`. Fix the word in `singlish_words.py` instead: a curated entry always overrides the imported one.
+
 ## Card Design
 
 - **Canvas:** 1080 × 640px
@@ -131,7 +144,7 @@ No need to add examples — Gemini generates fresh first-person Miku examples at
 ## Status / Roadmap
 
 - [x] Daily 6am SGT scheduled post with deterministic word selection
-- [x] 412-word Singlish bank with live AI-generated examples
+- [x] 1,292-word Singlish bank with live AI-generated examples
 - [x] Auto-subscribe/unsubscribe on group/channel add/remove
 - [x] Multi-chat broadcast
 - [x] `/debug` health-check command
@@ -140,6 +153,7 @@ No need to add examples — Gemini generates fresh first-person Miku examples at
 
 ## Changelog
 
+- **2026-11-08** — Imported 880 Singlish / Singapore English entries from Wiktionary (CC BY-SA 4.0), deduped against the curated list; credit line on those posts
 - **2026-04-20** — Store scheduler in a module-level variable to prevent pickle errors
 - **2026-04-18** — Switched from Claude to Gemini 2.5 Flash; added multi-chat subscription (auto-subscribe/unsubscribe)
 - **2026-04-16** — Expanded word bank to 412 words with live AI-generated examples
@@ -151,6 +165,8 @@ This project is dual licensed.
 
 - Community Edition — [GNU Affero General Public License v3 (AGPLv3)](LICENSE). Free to use, modify, and self-host. If you distribute a modified version or run it as a network service, you must make the corresponding source available.
 - Commercial License — for organisations that want to embed, modify, or distribute this software without AGPLv3's obligations. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+
+**Exception: `wiktionary_words.json`** is not covered by either licence above. Its definitions are adapted from [Wiktionary](https://en.wiktionary.org/) by Wiktionary contributors and remain under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/): reuse them with attribution and under the same licence. The commercial licence cannot grant other terms for this file; a commercial licensee who needs that would have to drop it (the bot runs fine on the curated list alone).
 
 ---
 

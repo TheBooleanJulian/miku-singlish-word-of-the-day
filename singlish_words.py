@@ -1,6 +1,23 @@
-"""Singlish Word Bank — examples generated live by Claude at post time.
+"""Singlish Word Bank — examples generated live by Gemini at post time.
 nsfw=True entries are filtered out if ALLOW_NSFW env var is not set.
+
+SINGLISH_WORDS = the hand-curated entries below, followed by entries imported
+from Wiktionary (wiktionary_words.json, CC BY-SA 4.0 — regenerate with
+scripts/import_wiktionary.py). Imported entries carry a "source" URL and are
+skipped if the curated bank already has the same word.
 """
+
+import json
+import re
+from pathlib import Path
+
+WIKTIONARY_PATH = Path(__file__).with_name("wiktionary_words.json")
+
+
+def normalise_word(word: str) -> str:
+    """Dedupe key: 'Wah-lau', 'wah lau' and 'wahlau' all collapse together."""
+    return re.sub(r"[^0-9a-z]", "", word.lower())
+
 
 SINGLISH_WORDS = [
     {"word":"lah","type":"particle","pronunciation":"lah","meaning":"The most iconic Singlish particle. Softens commands, adds emphasis, or expresses exasperation depending on tone."},
@@ -416,3 +433,23 @@ SINGLISH_WORDS = [
     {"word":"lanciao","type":"noun / exclamation","pronunciation":"lan-chee-ow","meaning":"Alternate compound spelling of lan jiao. Used identically \u2014 as dismissal, disbelief, or intensifier. 'You lanciao talking about what?' is a perfectly formed Singlish question.","nsfw":True},
     {"word":"cb face","type":"phrase","pronunciation":"C-B face","meaning":"Describing someone's expression as sour, unpleasant, or irritating. The rude Singlish way to say someone looks permanently annoyed or unfriendly. Not recommended as a compliment.","nsfw":True},
 ]
+
+CURATED_WORDS = list(SINGLISH_WORDS)
+
+
+def _load_wiktionary() -> list[dict]:
+    try:
+        entries = json.loads(WIKTIONARY_PATH.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    seen = {normalise_word(w["word"]) for w in CURATED_WORDS}
+    out = []
+    for e in entries:
+        key = normalise_word(e["word"])
+        if key and key not in seen:
+            seen.add(key)
+            out.append(e)
+    return out
+
+
+SINGLISH_WORDS.extend(_load_wiktionary())
