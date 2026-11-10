@@ -7,7 +7,7 @@
 //   GET  /status /healthz  bot-core status page and health JSON
 //   GET  /card/today.png   preview of today's word card (card.js, rendered with resvg; once the post exists)
 //
-// Data: schema miku_singlish in the shared Supabase project, via Hyperdrive (thebooleanjulian-bot-core/db).
+// Data: schema miku_singlish_word_of_the_day in the shared Supabase project, via Hyperdrive (thebooleanjulian-bot-core/db).
 // Commands and copy follow bot.py; the daily time moved from 06:00 to 00:01 SGT.
 import { log, api, verifyWebhook, parseCommand, healthz, statusPage, serveBrand } from 'thebooleanjulian-bot-core';
 import { withDb } from 'thebooleanjulian-bot-core/db';
@@ -20,13 +20,13 @@ const DAILY_TIME = '00:01';
 const q = (env, fn) => withDb(env, null, fn);
 const db = {
   subscribe: async (env, id, title = null) =>
-    (await q(env, (sql) => sql`insert into miku_singlish.chats (chat_id, title) values (${String(id)}, ${title}) on conflict (chat_id) do update set title = coalesce(excluded.title, miku_singlish.chats.title) returning (xmax = 0) as inserted`))[0].inserted,
-  unsubscribe: async (env, id) => (await q(env, (sql) => sql`delete from miku_singlish.chats where chat_id = ${String(id)} returning chat_id`)).length > 0,
-  count: async (env) => (await q(env, (sql) => sql`select count(*)::int as n from miku_singlish.chats`))[0].n,
-  all: async (env) => (await q(env, (sql) => sql`select chat_id from miku_singlish.chats order by added_at`)).map((r) => r.chat_id),
-  getPost: async (env, date) => (await q(env, (sql) => sql`select word, content from miku_singlish.daily_posts where post_date = ${date}`))[0] || null,
+    (await q(env, (sql) => sql`insert into miku_singlish_word_of_the_day.chats (chat_id, title) values (${String(id)}, ${title}) on conflict (chat_id) do update set title = coalesce(excluded.title, miku_singlish_word_of_the_day.chats.title) returning (xmax = 0) as inserted`))[0].inserted,
+  unsubscribe: async (env, id) => (await q(env, (sql) => sql`delete from miku_singlish_word_of_the_day.chats where chat_id = ${String(id)} returning chat_id`)).length > 0,
+  count: async (env) => (await q(env, (sql) => sql`select count(*)::int as n from miku_singlish_word_of_the_day.chats`))[0].n,
+  all: async (env) => (await q(env, (sql) => sql`select chat_id from miku_singlish_word_of_the_day.chats order by added_at`)).map((r) => r.chat_id),
+  getPost: async (env, date) => (await q(env, (sql) => sql`select word, content from miku_singlish_word_of_the_day.daily_posts where post_date = ${date}`))[0] || null,
   savePost: async (env, date, word, content) =>
-    q(env, (sql) => sql`insert into miku_singlish.daily_posts (post_date, word, content) values (${date}, ${word}, ${sql.json(content)}) on conflict (post_date) do nothing`)
+    q(env, (sql) => sql`insert into miku_singlish_word_of_the_day.daily_posts (post_date, word, content) values (${date}, ${word}, ${sql.json(content)}) on conflict (post_date) do nothing`)
 };
 
 const allowNsfw = (env) => ['1', 'true', 'yes'].includes(String(env.ALLOW_NSFW || '0').toLowerCase());
