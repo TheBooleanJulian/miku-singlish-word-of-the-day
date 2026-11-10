@@ -2,8 +2,8 @@
   // Miku's Singlish Word of the Day on Cloudflare Workers (webhook + Cron Trigger + Supabase via Hyperdrive).
   // Replaces bot.py, which polled on Zeabur. Daily post at 00:01 SGT = 16:01 UTC.
   // Secrets: BOT_TOKEN, WEBHOOK_SECRET. No model keys here: generation goes through thebooleanjulian-llm (binding LLM).
-  // Data: schema miku_singlish (TheBooleanJulian/thebooleanjulian-db); Hyperdrive "miku-singlish-db" logs in as
-  // miku_singlish_app, which can only touch that schema.
+  // Data: schema miku_singlish_word_of_the_day (TheBooleanJulian/thebooleanjulian-db); Hyperdrive "miku-singlish-word-of-the-day-db" logs in as
+  // miku_singlish_word_of_the_day_app, which can only touch that schema.
   "name": "miku-singlish",
   "account_id": "c580c4403524273d1bece674117472dd",
   "main": "worker.js",

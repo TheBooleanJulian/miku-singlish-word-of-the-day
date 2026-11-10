@@ -11,12 +11,12 @@ function fakeDb() {
   const posts = new Map();
   const sql = async (strings, ...v) => {
     const q = strings.join('?').replace(/\s+/g, ' ').trim().toLowerCase();
-    if (q.startsWith('insert into miku_singlish.chats')) { const had = chats.has(v[0]); chats.set(v[0], v[1] ?? chats.get(v[0]) ?? null); return [{ inserted: !had }]; }
-    if (q.startsWith('delete from miku_singlish.chats')) return chats.delete(v[0]) ? [{ chat_id: v[0] }] : [];
+    if (q.startsWith('insert into miku_singlish_word_of_the_day.chats')) { const had = chats.has(v[0]); chats.set(v[0], v[1] ?? chats.get(v[0]) ?? null); return [{ inserted: !had }]; }
+    if (q.startsWith('delete from miku_singlish_word_of_the_day.chats')) return chats.delete(v[0]) ? [{ chat_id: v[0] }] : [];
     if (q.includes('count(*)')) return [{ n: chats.size }];
     if (q.startsWith('select chat_id')) return [...chats.keys()].map((chat_id) => ({ chat_id }));
     if (q.startsWith('select word, content')) return posts.has(v[0]) ? [posts.get(v[0])] : [];
-    if (q.startsWith('insert into miku_singlish.daily_posts')) { if (!posts.has(v[0])) posts.set(v[0], { word: v[1], content: v[2] }); return []; }
+    if (q.startsWith('insert into miku_singlish_word_of_the_day.daily_posts')) { if (!posts.has(v[0])) posts.set(v[0], { word: v[1], content: v[2] }); return []; }
     throw new Error('unexpected query: ' + q);
   };
   sql.json = (x) => x;
